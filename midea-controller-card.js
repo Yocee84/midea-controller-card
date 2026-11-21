@@ -152,6 +152,7 @@ class MideaControllerCard extends HTMLElement {
       .col:last-child{border-right:0}.bigt{font-size:2.1em}.deg{font-size:.45em;vertical-align:top}
       .big{font-size:2.3em;text-align:center;margin-top:9%}.mid{text-align:center;padding:2% 4%;line-height:1.3;white-space:normal}
       .edit{background:#4865b4;color:#fff;padding:0 .15em}
+      .bigt.edit{outline:2px solid currentColor;outline-offset:2px}
       .btn{position:absolute;transform:translate(-50%,-50%);width:17%;height:9%;display:flex;align-items:center;justify-content:center;
         color:#26292b;font-size:3.6cqw;cursor:pointer;border-radius:8px;-webkit-tap-highlight-color:transparent;flex-direction:column;line-height:1}
       .btn:active{background:rgba(0,0,0,.08)} .btn.tri{font-size:5.2cqw} .btn small{font-size:1.9cqw;letter-spacing:.02em}
@@ -197,7 +198,7 @@ class MideaControllerCard extends HTMLElement {
     return v + (u ? " " + u : "");
   }
   cur() { return this.stack[this.stack.length - 1]; }
-  home() { this.mode = "home"; this.stack = []; }
+  home() { this.mode = "home"; this.stack = []; this.hsel = null; }
 
   press(k) {
     const card = this, hs = this._hass;
@@ -210,10 +211,16 @@ class MideaControllerCard extends HTMLElement {
         const on = (this.st("switch.heatpump_000_water_flow_temperature_control_zone_1") || {}).state === "on";
         this.confirm(on ? this.L("HEATING OFF?", "FŰTÉS KIKAPCSOLÁSA?") : this.L("HEATING ON?", "FŰTÉS BEKAPCSOLÁSA?"),
           () => h.callService("switch", "toggle", { entity_id: "switch.heatpump_000_water_flow_temperature_control_zone_1" }));
-      } else if (k === "up" || k === "down") {
-        const e = "number.heatpump_002_set_water_temperature_t1s_zone_1", s = this.st(e);
+      } else if (k === "left" || k === "right") {
+        // Like the real display: LEFT selects the heating flow setpoint, RIGHT the DHW tank setpoint.
+        this.hsel = k === "left" ? "t1" : "t5";
+        clearTimeout(this.hselT); this.hselT = setTimeout(() => { this.hsel = null; this.render(); }, 15000);
+      } else if (k === "back") this.hsel = null;
+      else if ((k === "up" || k === "down") && this.hsel) {
+        const e = this.hsel === "t1" ? "number.heatpump_002_set_water_temperature_t1s_zone_1" : "number.heatpump_004_set_dhw_tank_temperature_t5s", s = this.st(e);
         if (s) { const a = s.attributes, v = Math.min(a.max ?? 60, Math.max(a.min ?? 5, parseFloat(s.state) + (k === "up" ? 1 : -1)));
           h.callService("number", "set_value", { entity_id: e, value: v }); }
+        clearTimeout(this.hselT); this.hselT = setTimeout(() => { this.hsel = null; this.render(); }, 15000);
       }
       return this.render();
     }
@@ -299,9 +306,9 @@ class MideaControllerCard extends HTMLElement {
       html = `<div class="hdr"><span>${p(d.getDate())}-${p(d.getMonth() + 1)}-${d.getFullYear()}</span><span>${p(d.getHours())}:${p(d.getMinutes())}</span>
           <span>${ICON.house}${t4 === null ? "--" : Math.round(t4)}°</span><span>${this.locked ? ICON.lock + " " : ""}${ICON.wifi}</span></div>
         <div class="home">
-          <div class="col">${ICON.heat}<div>${ICON.drop} <span class="bigt">${t1s === null ? "--" : Math.round(t1s)}</span><span class="deg">°C</span></div></div>
+          <div class="col">${ICON.heat}<div>${ICON.drop} <span class="bigt${this.hsel === "t1" ? " edit" : ""}">${t1s === null ? "--" : Math.round(t1s)}</span><span class="deg">°C</span></div></div>
           <div class="col"><div style="font-size:1.5em">${on ? "ON" : "OFF"}</div>${mi}<div style="font-size:.8em">${run ? Math.round(run) + " Hz" : ""}</div></div>
-          <div class="col">${dhwOn ? `${ICON.tank}<div><span class="bigt">${t5s === null ? "--" : Math.round(t5s)}</span><span class="deg">°C</span></div>` : ""}</div>
+          <div class="col">${dhwOn || this.hsel === "t5" ? `${ICON.tank}<div><span class="bigt${this.hsel === "t5" ? " edit" : ""}">${t5s === null ? "--" : Math.round(t5s)}</span><span class="deg">°C</span></div>` : ""}</div>
         </div>`;
     } else if (this.mode === "confirm") {
       html = `<div class="hdr"><span>${this.L("CONFIRM", "MEGERŐSÍTÉS")}</span></div><div class="mid" style="margin-top:14%">${esc(this.confirmText)}</div>
