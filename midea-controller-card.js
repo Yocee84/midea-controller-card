@@ -1,7 +1,7 @@
 // Midea M-thermal wired controller emulator card for Home Assistant.
 // Works with the Mosibi/Midea-heat-pump-ESPHome entities (number.heatpump_set_water_temperature_t1s_zone_1)
 // and with register-numbered names (number.heatpump_002_set_water_temperature_t1s_zone_1). Options:
-//   device: heatpump   (the ESPHome devicename substitution)
+//   entity_prefix: heatpump   (the object id prefix of your entities; `device` is still accepted as an alias)
 //   lang: en | hu      (on-screen messages; menu texts are always the controller's English)
 // Navigation like the real wired controller: MENU, arrows, OK (enter), BACK, ON/OFF, long-press UNLOCK.
 const H = "heatpump_";
@@ -101,7 +101,7 @@ const MENU = (hass) => sub("MENU", [
     info("fault_2_error_code", "FAULT 2"), info("fault_3_error_code", "FAULT 3"), info("122_compressor_operation_time", "COMP. RUN TIME"),
     info("143_electricity_consumption", "ELEC. CONSUMPTION"), info("145_power_output", "HEAT OUTPUT"),
     info("coefficient_of_performance", "COP"), info("130_software_version", "SOFTWARE VER."), info("131_wired_controller_version_number", "HMI VER.")]),
-  sub("OPERATION PARAMRTER", opParams(hass)),
+  sub("OPERATION PARAMETER", opParams(hass)),
   SERVICE,
   note("WLAN SETTING", { en: "WLAN is set on the wired controller.", hu: "A WLAN a valódi kijelzőn állítható." }),
 ]);
@@ -175,11 +175,11 @@ class MideaControllerCard extends HTMLElement {
     this.lcd = this.root.querySelector(".lcd");
   }
 
-  // Entity ids are written as domain.heatpump_NNN_name; map them to the configured device name and
+  // Entity ids are written as domain.heatpump_NNN_name; map them to the configured entity prefix and
   // fall back to the unnumbered upstream name when the numbered one does not exist.
   R(e) {
     this._rc = this._rc || {}; if (this._rc[e]) return this._rc[e];
-    const dev = this.config.device || "heatpump", [dom, obj] = e.split(".");
+    const dev = String(this.config.entity_prefix || this.config.device || "heatpump").replace(/_+$/, ""), [dom, obj] = e.split(".");
     const rest = obj.startsWith(H) ? obj.slice(H.length) : obj, bare = rest.replace(/^\d{3}_/, "");
     const cands = [`${dom}.${dev}_${rest}`, `${dom}.${dev}_${bare}`];
     const hit = cands.find((c) => this._hass.states[c]);
@@ -250,7 +250,7 @@ class MideaControllerCard extends HTMLElement {
     }
     if (this.mode === "note") { if (k === "back" || k === "ok") this.mode = "menu"; else if (k === "menu") this.home(); return this.render(); }
     const c = this.cur(), items = c.node.items, N = items.length;
-    const paged = c.node.label === "OPERATION PARAMRTER";
+    const paged = c.node.label === "OPERATION PARAMETER";
     if (paged && (k === "up" || k === "down" || k === "left" || k === "right")) {
       const pages = Math.ceil(N / 6), pg = Math.floor(c.pos / 6), fwd = k === "down" || k === "right";
       c.pos = ((pg + (fwd ? 1 : pages - 1)) % pages) * 6;
@@ -321,7 +321,7 @@ class MideaControllerCard extends HTMLElement {
         <div class="ftr"><span>BACK</span><span></span></div>`;
     } else {
       const c = this.cur(), items = c.node.items, page = Math.floor(c.pos / 6), pages = Math.max(1, Math.ceil(items.length / 6));
-      const isParam = c.node.label === "OPERATION PARAMRTER";
+      const isParam = c.node.label === "OPERATION PARAMETER";
       html = `<div class="hdr"><span>${esc(isParam ? "OPERATION PARAMETER" : c.node.label)}</span><span>${isParam ? "#00" : `${page + 1}/${pages}`}</span></div>`;
       for (let i = page * 6; i < page * 6 + 6; i++) {
         const it = items[i];

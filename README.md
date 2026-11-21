@@ -37,13 +37,15 @@ Add this repository as a custom repository (type: Dashboard), install **Midea Co
 
 ```yaml
 type: custom:midea-controller-card
-device: heatpump   # optional: the ESPHome `devicename` substitution, default heatpump
-lang: en           # optional: en or hu, used for on-screen messages
+entity_prefix: heatpump   # optional: the prefix of your entity ids, default heatpump
+lang: en                  # optional: en or hu, used for on-screen messages
 ```
 
 The card works with the entity ids of the Mosibi configuration, for example `number.heatpump_set_water_temperature_t1s_zone_1`.
 It also accepts names that carry the register number, for example `number.heatpump_002_set_water_temperature_t1s_zone_1`.
 For every entity it tries the numbered form first and falls back to the plain one.
+
+If your entities use another prefix (for example `sensor.warmtepomp_water_flow` while the device is called "Heatpump Controller"), set `entity_prefix: warmtepomp`. Every entity the card reads or writes goes through this prefix. The older `device:` option still works as an alias.
 
 ## Notes
 
