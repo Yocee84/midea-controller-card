@@ -25,7 +25,19 @@ Nothing extra is needed on the ESPHome side: the card reads and writes the exist
 
 ### HACS
 
-Add this repository as a custom repository (type: Dashboard), install **Midea Controller Card**, then reload the browser.
+The card is not in the HACS default list yet, so add this repository as a custom repository first.
+
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Yocee84&repository=midea-controller-card&category=plugin)
+
+Or by hand:
+
+1. In Home Assistant open **HACS**.
+2. Open the three-dot menu in the top right corner and choose **Custom repositories**.
+3. Repository: `https://github.com/Yocee84/midea-controller-card`, type: **Dashboard**, then **Add**.
+4. Search for **Midea Controller Card** in HACS, open it and click **Download**.
+5. Reload the browser (in the phone app: close and reopen it).
+
+HACS registers the dashboard resource (`/hacsfiles/midea-controller-card/midea-controller-card.js`) for you. After that the card shows up in the card picker as **Midea wired controller**.
 
 ### Manual
 
