@@ -12,7 +12,7 @@ Nothing extra is needed on the ESPHome side: the card reads and writes the exist
 
 ## What it does
 
-- **Home screen:** date, time, outdoor temperature, the zone 1 water set point (T1S), on/off, mode and compressor frequency. The up/down arrows change T1S, and ON/OFF switches zone 1 after a confirmation.
+- **Home screen:** date, time, outdoor temperature, the zone 1 water set point (T1S), on/off, mode and compressor frequency. LEFT selects T1S and RIGHT selects the DHW tank set point (T5S), like on the wall unit: the value gets a frame and is inverted, and up/down change it. BACK or 15 seconds without a key clears the selection. ON/OFF switches zone 1 after a confirmation.
 - **MENU:** OPERATION MODE, PRESET TEMPERATURE, DOMESTIC HOT WATER (DHW), SCHEDULE, OPTIONS, CHILD LOCK, SERVICE INFORMATION, OPERATION PARAMETER, FOR SERVICEMAN and WLAN SETTING.
 - **Editing:** OK opens a value, up/down changes it, and OK writes it to the heat pump. BACK cancels.
 - **FOR SERVICEMAN (items 1 to 17):** asks for the controller password (234) and opens only for Home Assistant admin users.
