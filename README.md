@@ -49,7 +49,7 @@ HACS registers the dashboard resource (`/hacsfiles/midea-controller-card/midea-c
 
 ```yaml
 type: custom:midea-controller-card
-entity_prefix: heatpump   # optional: the prefix of your entity ids, default heatpump
+entity_prefix: heatpump   # optional: the prefix of your entity ids (detected if left out)
 lang: en                  # optional: en or hu, used for on-screen messages
 ```
 
@@ -58,6 +58,8 @@ It also accepts names that carry the register number, for example `number.heatpu
 For every entity it tries the numbered form first and falls back to the plain one.
 
 If your entities use another prefix (for example `sensor.warmtepomp_water_flow` while the device is called "Heatpump Controller"), set `entity_prefix: warmtepomp`. Every entity the card reads or writes goes through this prefix. The older `device:` option still works as an alias.
+
+Without `entity_prefix` the card looks for the zone 1 heating switch (`switch.<prefix>_water_flow_temperature_control_zone_1`) and uses its prefix. If it finds nothing, the display shows a SETUP screen with the prefix it tried instead of OFF and empty values. Both options can also be set in the visual card editor.
 
 ## Notes
 

@@ -112,7 +112,8 @@ const ICON = {
   sun: `<svg viewBox="0 0 24 24" width="1.9em" height="1.9em" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>`,
   snow: `<svg viewBox="0 0 24 24" width="1.9em" height="1.9em" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M12 2v20M3.3 7l17.4 10M3.3 17L20.7 7M9 4l3 2 3-2M9 20l3-2 3 2"/></svg>`,
   auto: `<svg viewBox="0 0 24 24" width="1.9em" height="1.9em" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="12" cy="12" r="9"/><text x="12" y="16.5" font-size="11" text-anchor="middle" fill="currentColor" stroke="none">A</text></svg>`,
-  tank: `<svg viewBox="0 0 24 24" width="1.5em" height="1.5em" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="7" y="3" width="10" height="18" rx="3"/><path d="M7 13h10"/></svg>`,
+  tank: `<svg viewBox="0 0 24 24" width="1.5em" height="1.5em" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M8 3h6M11 3v3M3 9h12a3 3 0 0 1 3 3v2h-3v-2H3zM16.5 17v1M16.5 20v1"/></svg>`,
+  run: `<svg viewBox="0 0 24 24" width="1.1em" height="1.1em" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="9"/><path d="M10 8l5 4-5 4z"/></svg>`,
   house: `<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg>`,
   wifi: `<svg viewBox="0 0 24 24" width="1.1em" height="1.1em" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>`,
   lock: `<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="1"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`,
@@ -121,7 +122,14 @@ const ICON = {
 };
 
 class MideaControllerCard extends HTMLElement {
-  setConfig(config) { this.config = config || {}; this.stack = []; this.mode = "home"; this.locked = false; this.msg = null; }
+  setConfig(config) { this.config = config || {}; this._rc = {}; this._pfx = null; this.stack = []; this.mode = "home"; this.locked = false; this.msg = null; }
+  static getStubConfig() { return { lang: "en" }; }
+  static getConfigForm() {
+    return { schema: [
+      { name: "entity_prefix", selector: { text: {} } },
+      { name: "lang", selector: { select: { mode: "dropdown", options: [{ value: "en", label: "English" }, { value: "hu", label: "Magyar" }] } } },
+    ] };
+  }
   getCardSize() { return 9; }
   set hass(h) { this._hass = h; if (!this.root) this.build(); this.render(); }
 
@@ -180,12 +188,24 @@ class MideaControllerCard extends HTMLElement {
   // fall back to the unnumbered upstream name when the numbered one does not exist.
   R(e) {
     this._rc = this._rc || {}; if (this._rc[e]) return this._rc[e];
-    const dev = String(this.config.entity_prefix || this.config.device || "heatpump").replace(/_+$/, ""), [dom, obj] = e.split(".");
+    const dev = this.prefix(), [dom, obj] = e.split(".");
     const rest = obj.startsWith(H) ? obj.slice(H.length) : obj, bare = rest.replace(/^\d{3}_/, "");
     const cands = [`${dom}.${dev}_${rest}`, `${dom}.${dev}_${bare}`];
     const hit = cands.find((c) => this._hass.states[c]);
     if (hit) this._rc[e] = hit;
     return hit || cands[0];
+  }
+  // The prefix comes from entity_prefix (or the older device). Without either, it is detected from the
+  // zone 1 heating switch, so a non-default prefix such as heatpump3 works without configuration.
+  prefix() {
+    const cfg = this.config.entity_prefix || this.config.device;
+    if (cfg) return String(cfg).replace(/_+$/, "");
+    if (this._pfx) return this._pfx;
+    const re = /^switch\.(.+?)_(?:\d{3}_)?water_flow_temperature_control_zone_1$/;
+    const ids = Object.keys(this._hass.states).map((k) => k.match(re)).filter(Boolean).map((m) => m[1]);
+    const found = ids.includes("heatpump") ? "heatpump" : ids[0];
+    if (found) this._pfx = found;
+    return found || "heatpump";
   }
   st(e) { return this._hass.states[this.R(e)]; }
   L(en, hu) { return this.config.lang === "hu" ? hu : en; }
@@ -293,22 +313,28 @@ class MideaControllerCard extends HTMLElement {
     const okEnter = `<span><span class="okb">OK</span>ENTER</span>`;
     let html = "";
     if (this.msg) html = `<div class="hdr">&nbsp;</div><div class="big" style="font-size:1.6em;margin-top:18%">${esc(this.msg)}</div>`;
-    else if (this.mode === "home") {
+    else if (this.mode === "home" && !this.st("switch.heatpump_000_water_flow_temperature_control_zone_1") && !this.st("number.heatpump_002_set_water_temperature_t1s_zone_1")) {
+      html = `<div class="hdr"><span>${this.L("SETUP", "BEÁLLÍTÁS")}</span></div><div class="mid" style="margin-top:6%;font-size:.85em;line-height:1.35">
+        ${this.L("Heat pump entities not found.", "Nem találom a hőszivattyú entitásait.")}<br>${this.L("Prefix tried", "Próbált előtag")}: <b>${esc(this.prefix())}_</b><br>
+        ${this.L("Set the prefix of your entities", "Add meg az entitások előtagját")}: <b>entity_prefix</b></div>`;
+    } else if (this.mode === "home") {
       const d = new Date(), p = (x) => String(x).padStart(2, "0");
       const t4 = this.num("sensor.heatpump_107_outdoor_ambient_temperature");
       const mode = (this.st("select.heatpump_001_operational_mode") || {}).state || "";
-      const on = (this.st("switch.heatpump_000_water_flow_temperature_control_zone_1") || {}).state === "on";
+      const sw1 = this.st("switch.heatpump_000_water_flow_temperature_control_zone_1"), on = (sw1 || {}).state === "on";
       const t1s = this.num("number.heatpump_002_set_water_temperature_t1s_zone_1");
-      const dhwOn = (this.st("switch.heatpump_000_power_dhw_t5s") || {}).state === "on";
+      // The real display shows the DHW column whenever DHW mode is enabled (service menu 1.1), even if tank heating is off.
+      const dhwMode = (this.st("switch.heatpump_210_parameter_setting_1_enable_water_heating") || {}).state;
       const t5s = this.num("number.heatpump_004_set_dhw_tank_temperature_t5s");
+      const dhwShow = dhwMode !== "off" && (t5s !== null || this.hsel === "t5");
       const mi = mode === "Cool" ? ICON.snow : mode === "Auto" ? ICON.auto : ICON.sun;
       const run = this.num("sensor.heatpump_100_compressor_operating_frequency");
       html = `<div class="hdr"><span>${p(d.getDate())}-${p(d.getMonth() + 1)}-${d.getFullYear()}</span><span>${p(d.getHours())}:${p(d.getMinutes())}</span>
           <span>${ICON.house}${t4 === null ? "--" : Math.round(t4)}°</span><span>${this.locked ? ICON.lock + " " : ""}${ICON.wifi}</span></div>
         <div class="home">
           <div class="col">${ICON.heat}<div>${ICON.drop} <span class="bigt${this.hsel === "t1" ? " edit" : ""}">${t1s === null ? "--" : Math.round(t1s)}</span><span class="deg">°C</span></div></div>
-          <div class="col"><div style="font-size:1.5em">${on ? "ON" : "OFF"}</div>${mi}<div style="font-size:.8em">${run ? Math.round(run) + " Hz" : ""}</div></div>
-          <div class="col">${dhwOn || this.hsel === "t5" ? `${ICON.tank}<div><span class="bigt${this.hsel === "t5" ? " edit" : ""}">${t5s === null ? "--" : Math.round(t5s)}</span><span class="deg">°C</span></div>` : ""}</div>
+          <div class="col"><div style="font-size:1.5em">${!sw1 || sw1.state === "unavailable" ? "--" : on ? "ON" : "OFF"}</div>${mi}<div style="font-size:.8em">${run ? ICON.run + " " + Math.round(run) + " Hz" : ""}</div></div>
+          <div class="col">${dhwShow ? `${ICON.tank}<div><span class="bigt${this.hsel === "t5" ? " edit" : ""}">${t5s === null ? "--" : Math.round(t5s)}</span><span class="deg">°C</span></div>` : ""}</div>
         </div>`;
     } else if (this.mode === "confirm") {
       html = `<div class="hdr"><span>${this.L("CONFIRM", "MEGERŐSÍTÉS")}</span></div><div class="mid" style="margin-top:14%">${esc(this.confirmText)}</div>
