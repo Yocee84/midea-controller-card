@@ -323,18 +323,25 @@ class MideaControllerCard extends HTMLElement {
       const mode = (this.st("select.heatpump_001_operational_mode") || {}).state || "";
       const sw1 = this.st("switch.heatpump_000_water_flow_temperature_control_zone_1"), on = (sw1 || {}).state === "on";
       const t1s = this.num("number.heatpump_002_set_water_temperature_t1s_zone_1");
+      // Like the wall unit, the big number is the current temperature (water outlet T1 / tank T5);
+      // it switches to the set point only while that side is selected for editing. Falls back to the
+      // set point when the current sensor is missing, so a minimal setup still shows a value.
+      const t1 = this.num("sensor.heatpump_110_total_water_outlet_temperature_t1");
+      const t1disp = this.hsel === "t1" ? t1s : (t1 ?? t1s);
       // The real display shows the DHW column whenever DHW mode is enabled (service menu 1.1), even if tank heating is off.
       const dhwMode = (this.st("switch.heatpump_210_parameter_setting_1_enable_water_heating") || {}).state;
       const t5s = this.num("number.heatpump_004_set_dhw_tank_temperature_t5s");
+      const t5 = this.num("sensor.heatpump_115_water_tank_temperature_t5");
+      const t5disp = this.hsel === "t5" ? t5s : (t5 ?? t5s);
       const dhwShow = dhwMode !== "off" && (t5s !== null || this.hsel === "t5");
       const mi = mode === "Cool" ? ICON.snow : mode === "Auto" ? ICON.auto : ICON.sun;
       const run = this.num("sensor.heatpump_100_compressor_operating_frequency");
       html = `<div class="hdr"><span>${p(d.getDate())}-${p(d.getMonth() + 1)}-${d.getFullYear()}</span><span>${p(d.getHours())}:${p(d.getMinutes())}</span>
           <span>${ICON.house}${t4 === null ? "--" : Math.round(t4)}°</span><span>${this.locked ? ICON.lock + " " : ""}${ICON.wifi}</span></div>
         <div class="home">
-          <div class="col">${ICON.heat}<div>${ICON.drop} <span class="bigt${this.hsel === "t1" ? " edit" : ""}">${t1s === null ? "--" : Math.round(t1s)}</span><span class="deg">°C</span></div></div>
+          <div class="col">${ICON.heat}<div>${ICON.drop} <span class="bigt${this.hsel === "t1" ? " edit" : ""}">${t1disp === null ? "--" : Math.round(t1disp)}</span><span class="deg">°C</span></div></div>
           <div class="col"><div style="font-size:1.5em">${!sw1 || sw1.state === "unavailable" ? "--" : on ? "ON" : "OFF"}</div>${mi}<div style="font-size:.8em">${run ? ICON.run + " " + Math.round(run) + " Hz" : ""}</div></div>
-          <div class="col">${dhwShow ? `${ICON.tank}<div><span class="bigt${this.hsel === "t5" ? " edit" : ""}">${t5s === null ? "--" : Math.round(t5s)}</span><span class="deg">°C</span></div>` : ""}</div>
+          <div class="col">${dhwShow ? `${ICON.tank}<div><span class="bigt${this.hsel === "t5" ? " edit" : ""}">${t5disp === null ? "--" : Math.round(t5disp)}</span><span class="deg">°C</span></div>` : ""}</div>
         </div>`;
     } else if (this.mode === "confirm") {
       html = `<div class="hdr"><span>${this.L("CONFIRM", "MEGERŐSÍTÉS")}</span></div><div class="mid" style="margin-top:14%">${esc(this.confirmText)}</div>
